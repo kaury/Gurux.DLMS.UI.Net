@@ -26,7 +26,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 // See the GNU General Public License for more details.
 //
-// More information of Gurux DLMS/COSEM Director: http://www.gurux.org/GXDLMSDirector
+// More information of Gurux DLMS/COSEM Director: https://www.gurux.org/GXDLMSDirector
 //
 // This code is licensed under the GNU General Public License v2.
 // Full text may be retrieved at http://www.gnu.org/licenses/gpl-2.0.txt
@@ -41,7 +41,7 @@ namespace Gurux.DLMS.UI
 {
     /// <summary>
     /// Online help:
-    /// http://www.gurux.fi/Gurux.DLMS.Objects.GXDLMSClock
+    /// https://www.gurux.fi/Gurux.DLMS.Objects.GXDLMSClock
     /// </summary>
     [GXDLMSViewAttribute(typeof(GXDLMSClock))]
     partial class GXDLMSClockView : Form, IGXDLMSView
@@ -168,7 +168,14 @@ namespace Gurux.DLMS.UI
                     ret = GXHelpers.ShowMessageBox(this, Properties.Resources.TimeZoneSetWarning, "", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
                     if (ret == DialogResult.Yes)
                     {
-                        (Target as GXDLMSClock).TimeZone = -(int)TimeZoneInfo.Local.BaseUtcOffset.TotalMinutes;
+                        if (arg.Client.UtcTimeZone)
+                        {
+                            (Target as GXDLMSClock).TimeZone = (int)TimeZoneInfo.Local.BaseUtcOffset.TotalMinutes;
+                        }
+                        else
+                        {
+                            (Target as GXDLMSClock).TimeZone = -(int)TimeZoneInfo.Local.BaseUtcOffset.TotalMinutes;
+                        }
                         Target.UpdateDirty(3, (Target as GXDLMSClock).TimeZone);
                     }
                     arg.Handled = ret != DialogResult.Yes;

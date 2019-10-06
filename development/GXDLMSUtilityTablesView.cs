@@ -4,7 +4,7 @@
 //
 //
 //
-// Filename:        $HeadURL: svn://mars/Projects/GuruxClub/GXDLMSDirector/Development/Views/GXDLMSScheduleView.cs $
+// Filename:        $HeadURL: svn://mars/Projects/GuruxClub/GXDLMSDirector/Development/Views/GXDLMSUtilityTablesView.cs $
 //
 // Version:         $Revision: 8933 $,
 //                  $Date: 2016-11-23 09:20:07 +0200 (ke, 23 marras 2016) $
@@ -44,19 +44,20 @@ namespace Gurux.DLMS.UI
 {
     /// <summary>
     /// Online help:
-    /// https://www.gurux.fi/Gurux.DLMS.Objects.GXDLMSSchedule
+    /// https://www.gurux.fi/Gurux.DLMS.Objects.GXDLMSData
     /// </summary>
-    [GXDLMSViewAttribute(typeof(Gurux.DLMS.Objects.GXDLMSSchedule))]
-    partial class GXDLMSScheduleView : Form, IGXDLMSView
+    [GXDLMSViewAttribute(typeof(GXDLMSUtilityTables))]
+    partial class GXDLMSUtilityTablesView : Form, IGXDLMSView
     {
 
         /// <summary>
         /// Constructor.
         /// </summary>
-        public GXDLMSScheduleView()
+        public GXDLMSUtilityTablesView()
         {
             InitializeComponent();
         }
+
         #region IGXDLMSView Members
 
         public GXDLMSObject Target
@@ -67,15 +68,7 @@ namespace Gurux.DLMS.UI
 
         public void OnValueChanged(int index, object value, bool user, bool connected)
         {
-        }
-
-        public void OnAccessRightsChange(int index, AccessMode access, bool connected)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void OnAccessRightsChange(int index, MethodAccessMode mode, bool connected)
-        {
+            throw new IndexOutOfRangeException("index");
         }
 
         public void PreAction(GXActionArgs arg)
@@ -99,19 +92,47 @@ namespace Gurux.DLMS.UI
         {
             get
             {
-                return null;
+                return DescriptionTB.Text;
             }
             set
             {
+                DescriptionTB.Text = value;
             }
         }
 
         public void OnDirtyChange(int index, bool Dirty)
         {
-
+            if (Dirty && index == 2)
+            {
+                errorProvider1.SetError(TableIdTB, Properties.Resources.ValueChangedTxt);
+            }
+            else
+            {
+                errorProvider1.Clear();
+            }
         }
 
+        public void OnAccessRightsChange(int index, AccessMode access, bool connected)
+        {
+            throw new IndexOutOfRangeException("index");
+        }
+
+        public void OnAccessRightsChange(int index, MethodAccessMode mode, bool connected)
+        {
+        }
         #endregion
 
+
+
+
+        private void ValueTB_KeyUp(object sender, KeyEventArgs e)
+        {
+            errorProvider1.SetError((Control)sender, Properties.Resources.ValueChangedTxt);
+        }
+
+        private void ValueTB_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            errorProvider1.SetError((Control)sender, Properties.Resources.ValueChangedTxt);
+        }
     }
 }

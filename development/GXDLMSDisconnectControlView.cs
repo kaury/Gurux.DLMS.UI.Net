@@ -26,7 +26,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 // See the GNU General Public License for more details.
 //
-// More information of Gurux DLMS/COSEM Director: http://www.gurux.org/GXDLMSDirector
+// More information of Gurux DLMS/COSEM Director: https://www.gurux.org/GXDLMSDirector
 //
 // This code is licensed under the GNU General Public License v2.
 // Full text may be retrieved at http://www.gnu.org/licenses/gpl-2.0.txt
@@ -44,7 +44,7 @@ namespace Gurux.DLMS.UI
 {
     /// <summary>
     /// Online help:
-    /// http://www.gurux.fi/Gurux.DLMS.Objects.GXDLMSDisconnectControl
+    /// https://www.gurux.fi/Gurux.DLMS.Objects.GXDLMSDisconnectControl
     /// </summary>
     [GXDLMSViewAttribute(typeof(GXDLMSDisconnectControl))]
     partial class GXDLMSDisconnectControlView : Form, IGXDLMSView
@@ -87,7 +87,10 @@ namespace Gurux.DLMS.UI
 
         public void PostAction(GXActionArgs arg)
         {
-            GXHelpers.ShowMessageBox(this, Properties.Resources.ActionImplemented, "", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (arg.Exception == null)
+            {
+                GXHelpers.ShowMessageBox(this, Properties.Resources.ActionImplemented, "", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
             arg.Action = ActionType.None;
         }
 
@@ -148,6 +151,6 @@ namespace Gurux.DLMS.UI
             (Target as GXDLMSDisconnectControl).OutputState = check;
             Target.UpdateDirty(2, check);
             errorProvider1.SetError(OutputStateCB, Properties.Resources.ValueChangedTxt);
-        }       
+        }
     }
 }

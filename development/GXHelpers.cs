@@ -34,6 +34,7 @@ using System.Text;
 using Gurux.DLMS.Enums;
 using Gurux.DLMS.Objects;
 using System.Windows.Forms;
+using System.Collections.Generic;
 
 namespace Gurux.DLMS.UI
 {
@@ -47,7 +48,7 @@ namespace Gurux.DLMS.UI
             }
             if (type == DataType.None)
             {
-                if (arrayAsString && data != null && data.GetType().IsArray)
+                if (arrayAsString && data != null && (data is List<object> || data.GetType().IsArray))
                 {
                     data = GXDLMSTranslator.ValueToXml(data);
                 }
@@ -170,25 +171,36 @@ namespace Gurux.DLMS.UI
 
         static string ArrayToString(object data)
         {
-            string str = "";
+            StringBuilder sb = new StringBuilder();
             if (data is Array)
             {
-                Array arr = (Array)data;
-                for (long pos = 0; pos != arr.Length; ++pos)
+                bool first = true;
+                sb.Append("{");
+                foreach(object it in (System.Collections.IEnumerable) data)
                 {
-                    object tmp = arr.GetValue(pos);
-                    if (tmp is Array)
+                    if (first)
                     {
-                        str += "{ " + ArrayToString(tmp) + " }";
+                        first = false;
                     }
                     else
                     {
-                        str += "{ " + Convert.ToString(tmp) + " }";
+                        sb.Append(',');
+                    }
+                    if (it is Array)
+                    {
+                        sb.Append("{");
+                        sb.Append(ArrayToString(it));
+                        sb.Append("}");
+                    }
+                    else
+                    {
+                        sb.Append(Convert.ToString(it));
                     }
                 }
+                sb.Append("}");
             }
-            return str;
-        }       
+            return sb.ToString();
+        }
 
         static public string ConvertDLMS2String(object data)
         {
@@ -209,6 +221,10 @@ namespace Gurux.DLMS.UI
             if (data is byte[])
             {
                 return BitConverter.ToString((byte[])data).Replace("-", " ");
+            }
+            if (!(data is string) && (data is Array || data is System.Collections.IEnumerable))
+            {
+                return ArrayToString(data);
             }
             return Convert.ToString(data);
         }

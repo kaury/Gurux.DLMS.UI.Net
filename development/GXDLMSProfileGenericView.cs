@@ -26,7 +26,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 // See the GNU General Public License for more details.
 //
-// More information of Gurux DLMS/COSEM Director: http://www.gurux.org/GXDLMSDirector
+// More information of Gurux DLMS/COSEM Director: https://www.gurux.org/GXDLMSDirector
 //
 // This code is licensed under the GNU General Public License v2.
 // Full text may be retrieved at http://www.gnu.org/licenses/gpl-2.0.txt
@@ -47,7 +47,7 @@ namespace Gurux.DLMS.UI
 {
     /// <summary>
     /// Online help:
-    /// http://www.gurux.fi/Gurux.DLMS.Objects.GXDLMSProfileGeneric
+    /// https://www.gurux.fi/Gurux.DLMS.Objects.GXDLMSProfileGeneric
     /// </summary>
     [GXDLMSViewAttribute(typeof(GXDLMSProfileGeneric))]
     partial class GXDLMSProfileGenericView : Form, IGXDLMSView
@@ -79,7 +79,13 @@ namespace Gurux.DLMS.UI
         {
             sb.Append("{");
             bool first = true;
-            foreach (object it in (object[])value)
+            if (value is object[])
+            {
+                List<object> tmp = new List<object>();
+                tmp.AddRange((object[])value);
+                value = tmp;
+            }
+            foreach (object it in (List<object>)value)
             {
                 if (first)
                 {
@@ -97,6 +103,10 @@ namespace Gurux.DLMS.UI
                 {
                     GetArrayAsString(sb, it);
                 }
+                else if (it is List<object>)
+                {
+                    GetArrayAsString(sb, it);
+                }
                 else
                 {
                     sb.Append(Convert.ToString(it));
@@ -111,7 +121,7 @@ namespace Gurux.DLMS.UI
             {
                 return GXDLMSTranslator.ToHex(value as byte[]);
             }
-            else if (value is object[])
+            else if (value is List<object>)
             {
                 StringBuilder sb = new StringBuilder();
                 GetArrayAsString(sb, value);
@@ -306,6 +316,30 @@ namespace Gurux.DLMS.UI
 
         void OnUpdateTarget(GXDLMSObject value)
         {
+            if (value != null && value.Parent != null && value.Parent.Parent is GXDLMSClient &&
+                (value.Parent.Parent as GXDLMSClient).Standard == Standard.Italy)
+            {
+                if (value.LogicalName == "0.0.21.0.1.255")
+                {
+                    //If non-enrolled list.
+                    RemoveBtn.Visible = false;
+                    AddWhiteBtn.Visible = AddBlackBtn.Visible = true;
+                }
+                else if (value.LogicalName == "0.0.21.0.2.255" || value.LogicalName == "0.0.21.0.3.255")
+                {
+                    //If white or black list.
+                    RemoveBtn.Visible = true;
+                    AddWhiteBtn.Visible = AddBlackBtn.Visible = false;
+                }
+                else
+                {
+                    RemoveBtn.Visible = AddWhiteBtn.Visible = AddBlackBtn.Visible = false;
+                }
+            }
+            else
+            {
+                RemoveBtn.Visible = AddWhiteBtn.Visible = AddBlackBtn.Visible = false;
+            }
             target = (GXDLMSProfileGeneric)value;
             structures = false;
             GXDLMSObject obj;
@@ -478,6 +512,58 @@ namespace Gurux.DLMS.UI
         {
         }
 
+        delegate void ShowUserDialogEventHandler(GXActionArgs arg);
+
+        void OnShowDialog(GXActionArgs arg)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new ShowUserDialogEventHandler(OnShowDialog), arg).AsyncWaitHandle.WaitOne();
+            }
+            else
+            {
+                if (ProfileGenericView.SelectedCells.Count == 1)
+                {
+                    DataGridViewRow row = ProfileGenericView.Rows[ProfileGenericView.SelectedCells[0].RowIndex];
+                    if (arg.Index == -1)
+                    {
+                        //Add to the white list.
+                        string data = "<Array Qty=\"01\" ><Structure Qty=\"04\" ><OctetString Value=\"" + row.Cells[2].Value + "\" /><UInt8 Value=\"63\" /><UInt16 Value=\"0004\" /><UInt8 Value=\"5\" /></Structure></Array>";
+                        arg.Action = ActionType.Write;
+                        arg.Index = 2;
+                        GXDLMSData d = new GXDLMSData("0.0.94.39.48.255");
+                        d.SetDataType(2, DataType.Array);
+                        d.Value = GXDLMSTranslator.XmlToValue(data);
+                        arg.Target = d;
+                    }
+                    else if (arg.Index == -2)
+                    {
+                        //Add to the black list.
+                        string data = "<Array Qty=\"01\" ><OctetString Value=\"" + row.Cells[2].Value + "\" /></Array>";
+                        arg.Action = ActionType.Write;
+                        arg.Index = 2;
+                        arg.Value = GXDLMSTranslator.XmlToValue(data);
+                        arg.Target = new GXDLMSData("0.0.94.39.47.255");
+                        arg.Target.SetDataType(2, DataType.Array);
+                    }
+                    else if (arg.Index == -3)
+                    {
+                        //Remove from the white or black list.
+                        //Add to the white list.
+                        long unixTime = GXDateTime.ToUnixTime(DateTime.Parse(Convert.ToString(row.Cells[4].Value)));
+                        string data = "<Structure Qty=\"02\" ><OctetString Value=\"" + row.Cells[0].Value + "\" /><UInt32 Value=\"" + unixTime + "\" /></Structure>";
+                        arg.Value = GXDLMSTranslator.XmlToValue(data);
+                        ProfileGenericView.Rows.Remove(row);
+                    }
+                }
+                else
+                {
+                    GXHelpers.ShowMessageBox(this, Properties.Resources.ProfileGenericDeviceAmountWarning, "", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information);
+                    arg.Handled = true;
+                }
+            }
+        }
+
         public void PreAction(GXActionArgs arg)
         {
             arg.Value = (sbyte)0;
@@ -494,11 +580,44 @@ namespace Gurux.DLMS.UI
                 ret = GXHelpers.ShowMessageBox(this, Properties.Resources.ProfileGenericCaptureWarning, "", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
                 arg.Handled = ret != DialogResult.Yes;
             }
+            else if (arg.Index == -1)
+            {
+                //Add to the white list.
+                ret = GXHelpers.ShowMessageBox(this, Properties.Resources.WhiteListWarning, "", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                if (ret == DialogResult.Yes)
+                {
+                    OnShowDialog(arg);
+                }
+                arg.Handled = ret != DialogResult.Yes;
+            }
+            else if (arg.Index == -2)
+            {
+                //Add to the black list.
+                ret = GXHelpers.ShowMessageBox(this, Properties.Resources.BlackListWarning, "", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                if (ret == DialogResult.Yes)
+                {
+                    OnShowDialog(arg);
+                }
+                arg.Handled = ret != DialogResult.Yes;
+            }
+            else if (arg.Index == -3)
+            {
+                //Remove from te white or black list.
+                ret = GXHelpers.ShowMessageBox(this, Properties.Resources.RemoveDeviceConfirmation, "", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                if (ret == DialogResult.Yes)
+                {
+                    OnShowDialog(arg);
+                }
+                arg.Handled = ret != DialogResult.Yes;
+            }
         }
 
         public void PostAction(GXActionArgs arg)
         {
-            GXHelpers.ShowMessageBox(this, Properties.Resources.ActionImplemented, "", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (arg.Exception == null)
+            {
+                GXHelpers.ShowMessageBox(this, Properties.Resources.ActionImplemented, "", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
             arg.Action = ActionType.None;
         }
 
@@ -646,7 +765,7 @@ namespace Gurux.DLMS.UI
             {
                 GXDLMSProfileGeneric target = Target as GXDLMSProfileGeneric;
                 GXKeyValuePair<GXDLMSObject, GXDLMSCaptureObject> it = new GXKeyValuePair<GXDLMSObject, GXDLMSCaptureObject>();
-                GXDLMSProfileGenericColumnDlg dlg = new GXDLMSProfileGenericColumnDlg(it, target.Parent as GXDLMSObjectCollection);
+                GXDLMSProfileGenericColumnDlg dlg = new GXDLMSProfileGenericColumnDlg(it, target.Parent as GXDLMSObjectCollection, null);
                 if (dlg.ShowDialog(this) == DialogResult.OK)
                 {
                     it = dlg.GetTarget();
@@ -678,7 +797,7 @@ namespace Gurux.DLMS.UI
                     GXDLMSProfileGeneric target = Target as GXDLMSProfileGeneric;
                     ListViewItem li = CaptureObjectsLv.SelectedItems[0];
                     GXKeyValuePair<GXDLMSObject, GXDLMSCaptureObject> it = (GXKeyValuePair<GXDLMSObject, GXDLMSCaptureObject>)li.Tag;
-                    GXDLMSProfileGenericColumnDlg dlg = new GXDLMSProfileGenericColumnDlg(it, target.Parent as GXDLMSObjectCollection);
+                    GXDLMSProfileGenericColumnDlg dlg = new GXDLMSProfileGenericColumnDlg(it, target.Parent as GXDLMSObjectCollection, null);
                     if (dlg.ShowDialog(this) == DialogResult.OK)
                     {
                         //If user has change target object.

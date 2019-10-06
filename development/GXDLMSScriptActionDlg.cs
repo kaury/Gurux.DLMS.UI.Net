@@ -26,7 +26,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 // See the GNU General Public License for more details.
 //
-// More information of Gurux products: http://www.gurux.org
+// More information of Gurux products: https://www.gurux.org
 //
 // This code is licensed under the GNU General Public License v2.
 // Full text may be retrieved at http://www.gnu.org/licenses/gpl-2.0.txt
@@ -51,9 +51,12 @@ namespace Gurux.DLMS.UI
             action = a;
             targets = objects;
             InitializeComponent();
-            foreach (object it in Enum.GetValues(typeof(DataType)))
+            foreach (DataType it in Enum.GetValues(typeof(DataType)))
             {
-                ParameterTypeTb.Items.Add(it);
+                if (it != DataType.None && it != DataType.Array && it != DataType.Structure)
+                {
+                    ParameterTypeTb.Items.Add(it);
+                }
             }
             TypeCb.Items.Add(ScriptActionType.Write);
             TypeCb.Items.Add(ScriptActionType.Execute);
