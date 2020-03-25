@@ -79,13 +79,7 @@ namespace Gurux.DLMS.UI
         {
             sb.Append("{");
             bool first = true;
-            if (value is object[])
-            {
-                List<object> tmp = new List<object>();
-                tmp.AddRange((object[])value);
-                value = tmp;
-            }
-            foreach (object it in (List<object>)value)
+            foreach (object it in (IEnumerable<object>)value)
             {
                 if (first)
                 {
@@ -99,11 +93,10 @@ namespace Gurux.DLMS.UI
                 {
                     sb.Append(Gurux.DLMS.GXDLMSTranslator.ToHex(it as byte[]));
                 }
-                else if (it is object[])
-                {
-                    GetArrayAsString(sb, it);
-                }
-                else if (it is List<object>)
+                else if (it is object[] ||
+                    it is List<object> ||
+                    it is GXStructure ||
+                    it is GXArray)
                 {
                     GetArrayAsString(sb, it);
                 }
@@ -121,7 +114,10 @@ namespace Gurux.DLMS.UI
             {
                 return GXDLMSTranslator.ToHex(value as byte[]);
             }
-            else if (value is List<object>)
+            else if (value is List<object> ||
+                    value is object[] ||
+                    value is GXStructure ||
+                    value is GXArray)
             {
                 StringBuilder sb = new StringBuilder();
                 GetArrayAsString(sb, value);
@@ -132,6 +128,10 @@ namespace Gurux.DLMS.UI
 
         void UpdateData(DataTable dt)
         {
+            if (target.CaptureObjects.Count == 0)
+            {
+                return;
+            }
             if (structures)
             {
                 List<object[]> data = new List<object[]>();
@@ -143,14 +143,14 @@ namespace Gurux.DLMS.UI
                     {
                         //If COSEM object is selected.
                         //Only few meters are supporting this.
-                        if (it.Value.AttributeIndex == 0 && r[index] is object[])
+                        if (it.Value.AttributeIndex == 0 && r[index] is List<object>)
                         {
                             //Values must be update to the list because there might be Register Scaler
                             //and it expects that scaler is read before value is updated.
                             GXDLMSObject obj = GXDLMSClient.CreateObject(it.Key.ObjectType);
                             byte i2 = 1;
                             Dictionary<byte, object> list = new Dictionary<byte, object>();
-                            foreach (object v in (r[index] as object[]))
+                            foreach (object v in (r[index] as List<object>))
                             {
                                 list.Add(i2, v);
                                 ++i2;
@@ -198,6 +198,23 @@ namespace Gurux.DLMS.UI
                             else if (row[col] is Object[])
                             {
                                 row[col] = GXDLMSTranslator.ValueToXml(row[col]);
+                            }
+                            else if (row[col] is GXStructure || row[col] is GXArray)
+                            {
+                                if (target.CaptureObjects[col].Key is GXDLMSRegister && target.CaptureObjects[col].Value.AttributeIndex == 2)
+                                {
+                                    GXDLMSRegister obj = new GXDLMSRegister();
+                                    ValueEventArgs ve = new ValueEventArgs(obj, target.CaptureObjects[col].Value.AttributeIndex, 0, null);
+                                    ve.Value = row[col];
+                                    (obj as IGXDLMSBase).SetValue(null, ve);
+                                    row[col] = "{" + obj.Scaler + ", " + obj.Unit + "}";
+                                }
+                                else
+                                {
+                                    StringBuilder sb = new StringBuilder();
+                                    GetArrayAsString(sb, row[col]);
+                                    row[col] = sb.ToString();
+                                }
                             }
                             else
                             {
@@ -291,7 +308,7 @@ namespace Gurux.DLMS.UI
                 {
                     DataColumn dc = dt.Columns.Add(index.ToString());
                     string str = it.Key.LogicalName;
-                    if (it.Value.AttributeIndex < columns.Length)
+                    if (it.Value.AttributeIndex < columns.Length && it.Value.AttributeIndex > 0)
                     {
                         str += Environment.NewLine + columns[it.Value.AttributeIndex - 1];
                     }
@@ -310,7 +327,10 @@ namespace Gurux.DLMS.UI
                     ++index;
                 }
             }
-            UpdateData(dt);
+            if (target.CaptureObjects.Count != 0)
+            {
+                UpdateData(dt);
+            }
             ProfileGenericView.DataSource = dt;
         }
 

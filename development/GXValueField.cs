@@ -523,7 +523,8 @@ namespace Gurux.DLMS.UI
                     }
                     else
                     {
-                        if (dt != DataType.Structure && dt != DataType.Array && dt != DataType.CompactArray
+                        if (dt != DataType.Structure && dt != DataType.Array && dt != DataType.CompactArray &&
+                            dt != DataType.DateTime && dt != DataType.Date && dt != DataType.Time
                             && !(Target is GXDLMSRegister && Index == 2) &&
                                             !(Target is GXDLMSIp4Setup) && !(Target is GXDLMSIp6Setup))
                         {
@@ -546,7 +547,7 @@ namespace Gurux.DLMS.UI
                 }
                 else
                 {
-                    throw new ArgumentNullException("Client or server is not set.");
+                    (Target as IGXDLMSBase).SetValue(new GXDLMSSettings(), v);
                 }
                 (this.ParentForm as IGXDLMSView).OnDirtyChange(Index, true);
                 Target.UpdateDirty(Index, value);
@@ -908,11 +909,13 @@ namespace Gurux.DLMS.UI
                 else
                 {
                     bitString.Visible = true;
+                    //List of bit intexes.
+                    Dictionary<int, int> bitIndexes = new Dictionary<int, int>();
                     if (Items != null && Items.Count != 0)
                     {
                         foreach (GXObisValueItem it in Items)
                         {
-                            checkedlistBox1.Items.Add(it);
+                            bitIndexes.Add(it.Value, checkedlistBox1.Items.Add(it));
                         }
                     }
                     bitString.Text = "";
@@ -937,15 +940,24 @@ namespace Gurux.DLMS.UI
                         {
                             if (it == '1')
                             {
-                                checkedlistBox1.SetItemChecked(pos, true);
+                                if (bitIndexes.ContainsKey(pos))
+                                {
+                                    checkedlistBox1.SetItemChecked(bitIndexes[pos], true);
+                                }
                             }
                             ++pos;
-                            if (pos == checkedlistBox1.Items.Count)
-                            {
-                                break;
-                            }
                         }
                         checkedlistBox1.ItemCheck += CheckedlistBox1_ItemCheck;
+                    }
+                    else if (value is GXEnum)
+                    {
+                        byte val = Convert.ToByte(value);
+                        if (bitIndexes.ContainsKey(val))
+                        {
+                            checkedlistBox1.ItemCheck -= CheckedlistBox1_ItemCheck;
+                            checkedlistBox1.SetItemChecked(bitIndexes[val], true);
+                            checkedlistBox1.ItemCheck += CheckedlistBox1_ItemCheck;
+                        }
                     }
                     else if (IsNumeric(value))
                     {

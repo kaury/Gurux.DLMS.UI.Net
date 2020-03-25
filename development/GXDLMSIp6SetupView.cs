@@ -32,10 +32,12 @@
 // Full text may be retrieved at http://www.gnu.org/licenses/gpl-2.0.txt
 //---------------------------------------------------------------------------
 
-using System;
-using System.Windows.Forms;
-using Gurux.DLMS.Objects;
 using Gurux.DLMS.Enums;
+using Gurux.DLMS.Objects;
+using System;
+using System.Collections.Generic;
+using System.Net;
+using System.Windows.Forms;
 
 namespace Gurux.DLMS.UI
 {
@@ -63,7 +65,46 @@ namespace Gurux.DLMS.UI
 
         public void OnValueChanged(int index, object value, bool user, bool connected)
         {
-            if (index == 10)
+            if (index == 4)
+            {
+                UnicastAddressView.Items.Clear();
+                GXDLMSIp6Setup target = Target as GXDLMSIp6Setup;
+                if (target.UnicastIPAddress != null)
+                {
+                    foreach (IPAddress it in target.UnicastIPAddress)
+                    {
+                        ListViewItem li = UnicastAddressView.Items.Add(it.ToString());
+                        li.Tag = it;
+                    }
+                }
+            }
+            else if (index == 5)
+            {
+                MulticastAddressView.Items.Clear();
+                GXDLMSIp6Setup target = Target as GXDLMSIp6Setup;
+                if (target.MulticastIPAddress != null)
+                {
+                    foreach (IPAddress it in target.MulticastIPAddress)
+                    {
+                        ListViewItem li = MulticastAddressView.Items.Add(it.ToString());
+                        li.Tag = it;
+                    }
+                }
+            }
+            else if (index == 6)
+            {
+                GatewayAddressView.Items.Clear();
+                GXDLMSIp6Setup target = Target as GXDLMSIp6Setup;
+                if (target.GatewayIPAddress != null)
+                {
+                    foreach (IPAddress it in target.GatewayIPAddress)
+                    {
+                        ListViewItem li = GatewayAddressView.Items.Add(it.ToString());
+                        li.Tag = it;
+                    }
+                }
+            }
+            else if (index == 10)
             {
                 DiscoverySetupView.Items.Clear();
                 GXDLMSIp6Setup target = Target as GXDLMSIp6Setup;
@@ -88,11 +129,7 @@ namespace Gurux.DLMS.UI
         {
             if (index == 10)
             {
-                AddBtn.Enabled = EditBtn.Enabled = RemoveBtn.Enabled = (access & AccessMode.Write) != 0;
-            }
-            else
-            {
-                throw new IndexOutOfRangeException("index");
+                AddBtn.Enabled = EditBtn.Enabled = RemoveBtn.Enabled = connected && (access & AccessMode.Write) != 0;
             }
         }
 
@@ -101,8 +138,101 @@ namespace Gurux.DLMS.UI
         }
 
 
+        delegate void ShowDlgEventHandler(GXActionArgs arg);
+
+        void OnShowDlg(GXActionArgs arg)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new ShowDlgEventHandler(OnShowDlg), arg).AsyncWaitHandle.WaitOne();
+            }
+            else
+            {
+                GXTextDlg dlg;
+                IPv6AddressType type;
+                GXDLMSIp6Setup target = Target as GXDLMSIp6Setup;
+                if (arg.Index == 1)
+                {
+                    if (AddressTab.SelectedIndex == 0)
+                    {
+                        dlg = new GXTextDlg("Add Unicast Address", "Unicast address:", "", typeof(IPAddress));
+                        type = IPv6AddressType.Unicast;
+                    }
+                    else if (AddressTab.SelectedIndex == 1)
+                    {
+                        dlg = new GXTextDlg("Add Multicast IP Address", "Multicast address:", "", typeof(IPAddress));
+                        type = IPv6AddressType.Multicast;
+                    }
+                    else if (AddressTab.SelectedIndex == 2)
+                    {
+                        dlg = new GXTextDlg("Add Gateway IP Address", "Gateway address:", "", typeof(IPAddress));
+                        type = IPv6AddressType.Gateway;
+                    }
+                    else
+                    {
+                        throw new ArgumentOutOfRangeException();
+                    }
+                    if (dlg.ShowDialog(this) == DialogResult.OK)
+                    {
+                        IPAddress addr = IPAddress.Parse(dlg.GetValue());
+                        arg.Value = target.AddAddress(arg.Client, type, addr);
+                    }
+                    else
+                    {
+                        arg.Handled = true;
+                    }
+                }
+                else if (arg.Index == 2)
+                {
+                    if (AddressTab.SelectedIndex == 0 && UnicastAddressView.SelectedItems.Count != 0)
+                    {
+                        ListViewItem li = UnicastAddressView.SelectedItems[0];
+                        IPAddress address = (IPAddress)li.Tag;
+                        UnicastAddressView.Items.Remove(li);
+                        arg.Value = target.RemoveAddress(arg.Client, IPv6AddressType.Unicast, address);
+                    }
+                    else if (AddressTab.SelectedIndex == 1 && MulticastAddressView.SelectedItems.Count != 0)
+                    {
+                        ListViewItem li = MulticastAddressView.SelectedItems[0];
+                        IPAddress address = (IPAddress)li.Tag;
+                        MulticastAddressView.Items.Remove(li);
+                        arg.Value = target.RemoveAddress(arg.Client, IPv6AddressType.Multicast, address);
+                    }
+                    else if (AddressTab.SelectedIndex == 2 && GatewayAddressView.SelectedItems.Count != 0)
+                    {
+                        ListViewItem li = GatewayAddressView.SelectedItems[0];
+                        IPAddress address = (IPAddress)li.Tag;
+                        GatewayAddressView.Items.Remove(li);
+                        arg.Value = target.RemoveAddress(arg.Client, IPv6AddressType.Gateway, address);
+                    }
+                    else
+                    {
+                        throw new ArgumentOutOfRangeException();
+                    }
+                }
+                else
+                {
+                    arg.Handled = true;
+                }
+            }
+        }
         public void PreAction(GXActionArgs arg)
         {
+            if (arg.Action == ActionType.Action)
+            {
+                if (arg.Index == 1)
+                {
+                    OnShowDlg(arg);
+                }
+                else if (arg.Index == 2)
+                {
+                    OnShowDlg(arg);
+                }
+                else
+                {
+                    arg.Handled = true;
+                }
+            }
         }
 
         public void PostAction(GXActionArgs arg)
@@ -135,20 +265,5 @@ namespace Gurux.DLMS.UI
         }
 
         #endregion
-
-        private void AddBtn_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void EditBtn_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void RemoveBtn_Click(object sender, EventArgs e)
-        {
-
-        }
     }
 }
